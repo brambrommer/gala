@@ -1,83 +1,96 @@
-<?php
-// Databaseconfiguratie
-$host = "sql103.infinityfree.com"; // Pas aan naar jouw gegevens
-$dbname = "if0_37684458_test";  // Pas aan naar jouw gegevens
-$username = "if0_37684458";         // Pas aan naar jouw gegevens
-$password = "QpMIhRNkiEXUjO"; // Pas aan naar jouw gegevens
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR Kaartjes</title>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-database.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; margin-top: 50px; }
+        .form { display: none; margin-top: 20px; }
+        .output { margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <h1>QR Kaartjes Generator</h1>
+    <button onclick="generateQRCode()">Genereer QR Code</button>
+    <div id="qrcode"></div>
 
-// Maak verbinding met de database
-try {
-    $pdo = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8", $username, $password);
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-} catch (PDOException $e) {
-    die("Fout bij verbinden met database: " . $e->getMessage());
-}
+    <div class="form" id="form-container">
+        <h2>Vul je gegevens in</h2>
+        <input type="text" id="name" placeholder="Naam"><br>
+        <input type="email" id="email" placeholder="E-mail"><br>
+        <button onclick="submitForm()">Verzenden</button>
+    </div>
 
-// URL ID ophalen
-$url_id = isset($_GET['id']) ? $_GET['id'] : null;
+    <div class="output" id="output-container"></div>
 
-if ($url_id) {
-    // Controleer of het ID al bestaat in de database
-    $stmt = $pdo->prepare("SELECT * FROM gebruikers WHERE url_id = :url_id");
-    $stmt->execute(['url_id' => $url_id]);
-    $gebruiker = $stmt->fetch(PDO::FETCH_ASSOC);
+    <script>
+        // Firebase configuratie
+        const firebaseConfig = {
+            apiKey: "JOUW_API_SLEUTEL",
+            authDomain: "JOUW_PROJECT.firebaseapp.com",
+            databaseURL: "https://JOUW_PROJECT.firebaseio.com",
+            projectId: "JOUW_PROJECT",
+            storageBucket: "JOUW_PROJECT.appspot.com",
+            messagingSenderId: "JOUW_SENDER_ID",
+            appId: "JOUW_APP_ID"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
 
-    if ($gebruiker) {
-        // Verhoog bezoek_teller
-        $bezoek_teller = $gebruiker['bezoek_teller'] + 1;
-        
-        // Update bezoek_teller in de database
-        $update_stmt = $pdo->prepare("UPDATE gebruikers SET bezoek_teller = :bezoek_teller WHERE url_id = :url_id");
-        $update_stmt->execute(['bezoek_teller' => $bezoek_teller, 'url_id' => $url_id]);
-
-        if ($bezoek_teller == 2) {
-            // Toon gegevens als het de tweede keer is
-            echo "<h1>Welkom terug!</h1>";
-            echo "<p>Naam: " . htmlspecialchars($gebruiker['naam']) . "</p>";
-            echo "<p>Leerlingnummer: " . htmlspecialchars($gebruiker['leerlingnummer']) . "</p>";
-        } elseif ($bezoek_teller > 2) {
-            // Toon bericht als het de derde keer of meer is
-            echo "<p>Deze link is al gebruikt.</p>";
+        // Functie om een QR code te genereren
+        function generateQRCode() {
+            const id = Date.now().toString();
+            const url = window.location.href + "?id=" + id;
+            new QRCode(document.getElementById("qrcode"), url);
+            database.ref('scans/' + id).set({
+                scanned: 0,
+                data: null
+            });
         }
-    } else {
-        // Eerste bezoek, toon formulier
-        if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            // Gegevens opslaan in de database
-            $naam = $_POST['naam'];
-            $leerlingnummer = $_POST['leerlingnummer'];
-            
-            $insert_stmt = $pdo->prepare("INSERT INTO gebruikers (url_id, naam, leerlingnummer) VALUES (:url_id, :naam, :leerlingnummer)");
-            $insert_stmt->execute([
-                'url_id' => $url_id,
-                'naam' => $naam,
-                'leerlingnummer' => $leerlingnummer
-            ]);
 
-            echo "<p>Bedankt! Jouw gegevens zijn opgeslagen.</p>";
-        } else {
-            // HTML formulier weergeven
-            echo '
-            <!DOCTYPE html>
-            <html lang="nl">
-            <head>
-                <meta name="viewport" content="width=device-width, initial-scale=1">
-                <title>Gegevens invullen</title>
-            </head>
-            <body>
-                <h1>Vul je gegevens in</h1>
-                <form method="post" action="">
-                    <label for="naam">Naam:</label><br>
-                    <input type="text" id="naam" name="naam" required><br><br>
-                    <label for="leerlingnummer">Leerlingnummer:</label><br>
-                    <input type="text" id="leerlingnummer" name="leerlingnummer" required><br><br>
-                    <input type="submit" value="Opslaan">
-                </form>
-            </body>
-            </html>
-            ';
+        // Controleer op scan en toon formulier of gegevens
+        const urlParams = new URLSearchParams(window.location.search);
+        const scanId = urlParams.get('id');
+        if (scanId) {
+            const scanRef = database.ref('scans/' + scanId);
+            scanRef.once('value').then(snapshot => {
+                const scanData = snapshot.val();
+                if (scanData && scanData.scanned === 0) {
+                    document.getElementById("form-container").style.display = "block";
+                } else if (scanData && scanData.scanned > 0) {
+                    document.getElementById("output-container").innerHTML = `
+                        <h2>Gegevens</h2>
+                        <p>Naam: ${scanData.data.name}</p>
+                        <p>Email: ${scanData.data.email}</p>
+                        <p>Aantal keer gescand: ${scanData.scanned + 1}</p>
+                    `;
+                    scanRef.update({ scanned: scanData.scanned + 1 });
+                }
+            });
         }
-    }
-} else {
-    echo "Geen geldig ID opgegeven in de URL.";
-}
-?>
+
+        // Verzend gegevens en toon ze bij volgende scans
+        function submitForm() {
+            const name = document.getElementById("name").value;
+            const email = document.getElementById("email").value;
+            const scanRef = database.ref('scans/' + scanId);
+            scanRef.update({
+                data: { name: name, email: email },
+                scanned: 1
+            }).then(() => {
+                document.getElementById("output-container").innerHTML = `
+                    <h2>Gegevens opgeslagen!</h2>
+                    <p>Naam: ${name}</p>
+                    <p>Email: ${email}</p>
+                    <p>Aantal keer gescand: 1</p>
+                `;
+                document.getElementById("form-container").style.display = "none";
+            });
+        }
+    </script>
+</body>
+</html>
