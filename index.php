@@ -30,12 +30,12 @@
     <script>
         // Firebase configuratie
         const firebaseConfig = {
-            apiKey: "JOUW_API_SLEUTEL",
-            authDomain: "JOUW_PROJECT.firebaseapp.com",
-            databaseURL: "https://JOUW_PROJECT.firebaseio.com",
-            projectId: "JOUW_PROJECT",
-            storageBucket: "JOUW_PROJECT.appspot.com",
-            messagingSenderId: "JOUW_SENDER_ID",
+            apiKey: "AIzaSyAPimbCCvjjAIKyzLKutfz62CGEL8x-6Ng",
+            authDomain: "gala-54873.firebaseapp.com",
+            databaseURL: "https://gala-54873.firebaseio.com",
+            projectId: "gala-54873",
+            storageBucket: "gala-54873.appspot.com",
+            messagingSenderId: "883917821306",
             appId: "JOUW_APP_ID"
         };
         firebase.initializeApp(firebaseConfig);
